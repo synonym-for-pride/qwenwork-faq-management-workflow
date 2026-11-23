@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ Management Workflow — Weekly Ops Dashboard</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --surface:#ffffff; --ink:#1b2430; --muted:#5b6675;
+    --line:#e4e7ec; --accent:#2f6df6; --accent-soft:#eaf0fe; --good:#1f9d6b;
+    --err:#c0392b; --radius:14px;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 4px 16px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 64px;}
+  header.top{margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 8px;}
+  h1{font-size:30px;margin:0 0 10px;font-weight:700;letter-spacing:-.01em;}
+  .subtitle{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:#234a9a;
+    font-size:14px;font-weight:600;padding:6px 14px;border-radius:999px;}
+  .subtitle .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+  .refresh{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;
+    font-size:14px;font-weight:600;padding:10px 18px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow);}
+  .refresh:hover{background:#2559d4;}
+  .refresh:disabled{opacity:.6;cursor:default;}
+  .updated{font-size:12px;color:var(--muted);margin-top:8px;text-align:right;}
+  .section-label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:30px 0 14px;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);}
+  .card .kicker{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  .card .headline{font-size:28px;font-weight:700;margin:10px 0 6px;letter-spacing:-.02em;}
+  .card .headline.accent{color:var(--accent);} .card .headline.good{color:var(--good);}
+  .card .support{font-size:13px;color:var(--muted);margin:0;}
+  .pub-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+  .pub-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
+  .pub-card h3{margin:0 0 8px;font-size:16px;font-weight:600;}
+  .badge{display:inline-block;font-size:12px;font-weight:600;color:#234a9a;background:var(--accent-soft);padding:3px 10px;border-radius:999px;margin-bottom:10px;}
+  .pub-card a{color:var(--accent);text-decoration:none;font-weight:600;font-size:14px;}
+  .pub-card a:hover{text-decoration:underline;}
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:30px 22px;text-align:center;color:var(--muted);}
+  .empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:4px;}
+  .cats{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);}
+  .cat-row{display:grid;grid-template-columns:150px 1fr 36px;align-items:center;gap:14px;margin:12px 0;}
+  .cat-row:first-child{margin-top:0;} .cat-row:last-child{margin-bottom:0;}
+  .cat-name{font-size:14px;font-weight:600;color:var(--ink);}
+  .bar-track{background:#eef1f5;border-radius:8px;height:14px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--accent);border-radius:8px;min-width:2px;transition:width .3s;}
+  .bar-fill.sub{background:#475569;}
+  .sub-total{font-size:13px;color:var(--muted);margin:0 0 12px;}
+  .snap-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:#7a5a12;background:#fbf0d9;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;}
+  .cat-count{font-size:14px;font-weight:700;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;}
+  .status{border-radius:10px;padding:14px 18px;font-size:14px;margin:0 0 4px;}
+  .status.loading{background:var(--accent-soft);color:#234a9a;}
+  .status.error{background:#fbe9e7;color:var(--err);}
+  .setup{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow);}
+  .setup h2{margin:0 0 10px;font-size:18px;}
+  .setup p{margin:0 0 10px;font-size:14px;color:var(--muted);}
+  .setup code{background:#eef1f5;padding:1px 6px;border-radius:5px;font-size:13px;color:var(--ink);}
+  .setup ol{margin:0 0 4px;padding-left:20px;font-size:14px;color:var(--ink);}
+  .setup li{margin:4px 0;}
+  .pend-list{display:flex;flex-direction:column;gap:16px;}
+  .pend-card{background:var(--surface);border:1px solid var(--line);border-left:4px solid #c47d1c;border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
+  .pend-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+  .pend-type{display:inline-block;font-size:11px;font-weight:700;color:#7a3e00;background:#fdecd2;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;}
+  .pend-subject{font-size:16px;font-weight:600;margin:0;}
+  .pend-meta{font-size:13px;color:var(--muted);margin:2px 0 10px;}
+  .pend-meta b{color:var(--ink);font-weight:600;}
+  .pend-body{font-size:14px;color:var(--ink);background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:12px 14px;white-space:pre-wrap;word-break:break-word;margin:0 0 8px;}
+  .pend-context{font-size:13px;color:var(--muted);margin:0 0 14px;}
+  .pend-actions{display:flex;gap:10px;}
+  .btn{font-size:14px;font-weight:600;padding:8px 16px;border-radius:9px;border:1px solid transparent;cursor:pointer;}
+  .btn.send{background:var(--good);color:#fff;}
+  .btn.send:hover{background:#178a5c;}
+  .btn.deny{background:#fff;color:var(--err);border-color:#e6b3ac;}
+  .btn.deny:hover{background:#fbe9e7;}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .live-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#234a9a;background:var(--accent-soft);padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1b2430;color:#fff;font-size:14px;padding:11px 18px;border-radius:10px;box-shadow:0 6px 24px rgba(16,24,40,.25);opacity:0;transition:opacity .25s;pointer-events:none;z-index:50;}
+  .toast.show{opacity:1;}
+  footer.foot{margin-top:36px;font-size:12px;color:var(--muted);text-align:center;}
+  footer.foot code{background:#eef1f5;padding:1px 6px;border-radius:5px;}
+  .hidden{display:none;}
+  @media (max-width:760px){.stats,.pub-grid{grid-template-columns:1fr;}h1{font-size:24px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <p class="eyebrow">Internal Ops</p>
+      <h1>FAQ Management Workflow — Weekly Ops Dashboard</h1>
+      <span class="subtitle"><span class="dot"></span><span id="weekLabel">Week of —</span></span>
+    </div>
+    <div>
+      <button class="refresh" id="refreshBtn" onclick="load(true)">&#8635; Refresh</button>
+      <div class="updated" id="updated"></div>
+    </div>
+  </header>
+
+  <div id="setupBox"></div>
+  <div id="statusBox"></div>
+
+  <div id="content">
+    <div class="section-label">This week at a glance</div>
+    <div class="stats">
+      <div class="card"><div class="kicker">Theme trend</div><div class="headline accent" id="themeHead">—</div><p class="support" id="themeSup">—</p></div>
+      <div class="card"><div class="kicker">Safety escalation rate</div><div class="headline good" id="safetyHead">—</div><p class="support" id="safetySup">—</p></div>
+      <div class="card"><div class="kicker">Trust coverage</div><div class="headline" id="trustHead">—</div><p class="support" id="trustSup">—</p></div>
+    </div>
+
+    <div class="section-label">Draft articles — review</div>
+    <p class="sub-total">Approval is for this session only. It does not update the Google Sheet or publish on the website. Reloading resets approvals.</p>
+    <div id="articleDrafts" aria-live="polite"></div>
+
+    <div class="section-label">Published this week</div>
+    <div id="published"></div>
+
+    <div class="section-label">Category breakdown — published articles</div>
+    <div class="cats" id="cats"></div>
+
+    <div class="section-label" id="pendingLabel" style="display:none;">Pending responses — awaiting approval<span class="live-tag">Live · refetch on load / Refresh</span></div>
+    <div id="pending" style="display:none;"></div>
+
+    <div id="submissionsWrap"></div>
+  </div>
+
+  <footer class="foot">
+    Insights, Published articles &amp; Pending responses re-fetch from the published Google Sheet tabs on each load / refresh. Submissions-by-category is a snapshot.
+    &nbsp;·&nbsp; Configure links in <code>config.js</code>.
+  </footer>
+</div>
+
+<!-- User-specific links & endpoints live in config.js (git-ignored). Copy config.example.js to create it. -->
+<script src="config.js"></script>
+<script>
+// ---- Read configuration injected by config.js ----
+var CFG = (window.APP_CONFIG && typeof window.APP_CONFIG === "object") ? window.APP_CONFIG : {};
+
+function isSet(v){ return !!(v && typeof v === "string" && v.indexOf("PASTE_YOUR") < 0 && /^https?:\/\//i.test(v)); }
+
+var INSIGHTS_CSV_URL      = CFG.insightsCsvUrl || "";
+var DRAFTS_CSV_URL        = CFG.draftsCsvUrl || "";
+var DRAFT_RESPONSES_CSV_URL = CFG.draftResponsesCsvUrl || "";
+var APPROVE_ENDPOINT      = CFG.approveEndpoint || "";
+
+var CATEGORIES = (Array.isArray(CFG.categories) && CFG.categories.length)
+  ? CFG.categories.slice()
+  : ["Longevity","Brain","Vision","Physical Health"];
+
+var PENDING = []; // currently shown pending Draft Responses rows
+
+function parseCSV(text){
+  var rows=[],row=[],field="",q=false,i=0,c;
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+  for(;i<text.length;i++){c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; } else field+=c; }
+    else{ if(c==='"') q=true;
+      else if(c===','){row.push(field);field="";}
+      else if(c==='\n'){row.push(field);field=""; if(row.length>1||row[0]!=="")rows.push(row); row=[];}
+      else if(c==='\r'){}
+      else field+=c; }
+  }
+  if(field!==""||row.length){row.push(field); if(row.length>1||row[0]!=="")rows.push(row);}
+  return rows;
+}
+function toObjects(rows){
+  if(!rows.length) return [];
+  var head=rows[0].map(function(h){return String(h).trim().toLowerCase();});
+  return rows.slice(1).filter(function(r){return r.some(function(v){return String(v).trim()!=="";});})
+    .map(function(r){var o={};head.forEach(function(k,idx){o[k]=r[idx]!==undefined?String(r[idx]).trim():"";});return o;});
+}
+function fetchCsv(url){
+  if(!url) return Promise.reject(new Error("missing-url"));
+  var sep = url.indexOf("?")>=0 ? "&" : "?";
+  return fetch(url+sep+"cachebust="+Date.now(),{redirect:"follow"})
+    .then(function(res){ if(!res.ok) throw new Error("HTTP "+res.status); return res.text(); });
+}
+function fmtDate(iso){
+  var parts=String(iso).split("-"); if(parts.length!==3) return iso;
+  var d=new Date(Number(parts[0]),Number(parts[1])-1,Number(parts[2]));
+  var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  return m+" "+d.getDate()+", "+d.getFullYear();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(x){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[x];});}
+function deriveHeadline(text){
+  if(!text) return "—";
+  var pct=text.match(/\b\d+(?:\.\d+)?%/); if(pct) return pct[0];
+  if(/^no published drafts/i.test(text)) return "0 published";
+  var num=text.match(/\b(?:up from \d+ to \d+|\d+)\b/); if(num) return num[0];
+  return text.split(/[:.]/)[0].trim().slice(0,28);
+}
+
+function renderInsights(objs){
+  if(!objs.length){ setStatus("error","Insights tab returned no rows."); return; }
+  var rows=objs.slice().sort(function(a,b){return String(b.week_ending||"").localeCompare(String(a.week_ending||""));});
+  var r=rows[0];
+  document.getElementById("weekLabel").textContent="Week of "+fmtDate(r.week_ending||"—");
+  document.getElementById("themeHead").textContent=deriveHeadline(r.theme_trend);
+  document.getElementById("themeSup").textContent=r.theme_trend||"—";
+  document.getElementById("safetyHead").textContent=deriveHeadline(r.safety_escalation_rate);
+  document.getElementById("safetySup").textContent=r.safety_escalation_rate||"—";
+  document.getElementById("trustHead").textContent=deriveHeadline(r.trust_coverage);
+  document.getElementById("trustSup").textContent=r.trust_coverage||"—";
+}
+var ARTICLE_APPROVALS = new Set();
+var ARTICLE_DRAFTS = [];
+function articleKey(o){ return JSON.stringify([o.date,o.title,o.category,o.article_body,o.sources_cited,o.confidence]); }
+function renderArticleReview(){
+  var box=document.getElementById("articleDrafts");
+  if(!ARTICLE_DRAFTS.length){
+    box.innerHTML='<div class="empty"><strong>No draft articles waiting for review</strong></div>';
+    return;
+  }
+  box.innerHTML='<div class="pend-list">'+ARTICLE_DRAFTS.map(function(o,index){
+    var approved=ARTICLE_APPROVALS.has(articleKey(o));
+    return '<article class="pend-card"><span class="badge">'+esc(o.category||"Unclassified")+'</span>'
+      +'<h3>'+esc(o.title||"(untitled)")+'</h3>'
+      +'<div class="pend-body">'+esc(o.article_body||"No article body yet.")+'</div>'
+      +'<p class="pend-context"><b>Sources:</b> '+esc(o.sources_cited||"Not provided")+'<br><b>Confidence:</b> '+esc(o.confidence||"Not provided")+'</p>'
+      +'<button class="btn send" data-article-index="'+index+'"'+(approved?' disabled':'')+'>'+(approved?'Approved — this session':'Approve')+'</button></article>';
+  }).join('')+'</div>';
+}
+document.getElementById("articleDrafts").addEventListener("click",function(e){
+  var btn=e.target.closest("button[data-article-index]");
+  if(!btn) return;
+  var article=ARTICLE_DRAFTS[Number(btn.dataset.articleIndex)];
+  if(!article) return;
+  ARTICLE_APPROVALS.add(articleKey(article));
+  renderArticleReview();
+  toast("Approved for this session only — no Sheet or website changes.");
+});
+function renderDrafts(objs){
+  ARTICLE_DRAFTS=objs.filter(function(o){return String(o.status||"").toLowerCase()==="draft";});
+  renderArticleReview();
+  var pub=objs.filter(function(o){return String(o.status||"").toLowerCase()==="published";});
+  var box=document.getElementById("published");
+  if(!pub.length){
+    box.innerHTML='<div class="empty"><strong>No published articles yet</strong> No Drafts rows have status = "published". Published pieces will appear here automatically.</div>';
+  }else{
+    box.innerHTML='<div class="pub-grid">'+pub.map(function(o){
+      var link=o.published_url?('<a href="'+esc(o.published_url)+'" target="_blank" rel="noopener">Read article &rarr;</a>'):'<span style="color:var(--muted);font-size:14px;">No URL yet</span>';
+      return '<div class="pub-card"><span class="badge">'+esc(o.category||"Unclassified")+'</span><h3>'+esc(o.title||"(untitled)")+'</h3>'+link+'</div>';
+    }).join("")+'</div>';
+  }
+  var counts={}; CATEGORIES.forEach(function(c){counts[c]=0;});
+  pub.forEach(function(o){var c=o.category||"Unclassified"; counts[c]=(counts[c]||0)+1;});
+  var names=CATEGORIES.slice(); pub.forEach(function(o){var c=o.category||"Unclassified"; if(names.indexOf(c)<0)names.push(c);});
+  var max=names.reduce(function(m,c){return Math.max(m,counts[c]||0);},0);
+  document.getElementById("cats").innerHTML=names.map(function(c){
+    var n=counts[c]||0, w=max?Math.round(n/max*100):0;
+    return '<div class="cat-row"><span class="cat-name">'+esc(c)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+w+'%"></div></div><span class="cat-count">'+n+'</span></div>';
+  }).join("");
+}
+function setStatus(kind,msg){
+  var b=document.getElementById("statusBox");
+  if(!msg){b.innerHTML="";return;}
+  b.innerHTML='<div class="status '+kind+'">'+esc(msg)+'</div>';
+}
+
+// ---- Submissions-by-category snapshot (optional; aggregate counts only) ----
+function renderSubmissions(){
+  var wrap=document.getElementById("submissionsWrap");
+  var s=CFG.submissionsSnapshot;
+  if(!s || s.enabled===false || !Array.isArray(s.rows) || !s.rows.length){ wrap.innerHTML=""; return; }
+  var max=s.rows.reduce(function(m,r){return Math.max(m,Number(r.count)||0);},0);
+  var rowsHtml=s.rows.map(function(r){
+    var n=Number(r.count)||0, w=max?Math.round(n/max*100):0;
+    return '<div class="cat-row"><span class="cat-name">'+esc(r.label)+'</span><div class="bar-track"><div class="bar-fill sub" style="width:'+w+'%"></div></div><span class="cat-count">'+n+'</span></div>';
+  }).join("");
+  var asOf=s.asOf?('<span class="snap-tag">Snapshot · as of '+esc(s.asOf)+'</span>'):'';
+  var total=s.totalLabel?('<p class="sub-total">'+esc(s.totalLabel)+(s.note?(" · "+esc(s.note)):"")+'</p>'):'';
+  wrap.innerHTML='<div class="section-label">Submissions by category'+asOf+'</div><div class="cats">'+total+rowsHtml+'</div>';
+}
+
+var _toastT;
+function toast(msg){
+  var t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(_toastT); _toastT=setTimeout(function(){t.classList.remove("show");},2600);
+}
+function renderPending(list){
+  var box=document.getElementById("pending");
+  if(!list.length){
+    box.innerHTML='<div class="empty"><strong>No responses waiting for review</strong> Nothing in the Draft Responses tab has status = "pending" right now.</div>';
+    return;
+  }
+  box.innerHTML='<div class="pend-list">'+list.map(function(o){
+    var id=esc(o.draft_id||"");
+    var ctx=o.context?('<p class="pend-context"><b>Context:</b> '+esc(o.context)+'</p>'):'';
+    return '<div class="pend-card" data-draft="'+id+'">'
+      +'<div class="pend-head"><span class="pend-type">'+esc(o.type||"response")+'</span><p class="pend-subject">'+esc(o.subject||"(no subject)")+'</p></div>'
+      +'<div class="pend-meta"><b>To:</b> '+esc(o.recipient_email||"—")+'</div>'
+      +'<div class="pend-body">'+esc(o.body||"")+'</div>'
+      +ctx
+      +'<div class="pend-actions">'
+        +'<button class="btn send" data-draft="'+id+'" data-decision="approved">Send</button>'
+        +'<button class="btn deny" data-draft="'+id+'" data-decision="rejected">Don\u2019t send</button>'
+      +'</div></div>';
+  }).join("")+'</div>';
+}
+function loadPending(){
+  if(!isSet(DRAFT_RESPONSES_CSV_URL)){ return; }
+  fetchCsv(DRAFT_RESPONSES_CSV_URL)
+    .then(function(t){
+      PENDING = toObjects(parseCSV(t)).filter(function(o){return String(o.status||"").toLowerCase()==="pending";});
+      renderPending(PENDING);
+    })
+    .catch(function(err){
+      document.getElementById("pending").innerHTML='<div class="empty"><strong>Could not load pending responses</strong> '+esc(err.message)+'</div>';
+    });
+}
+function decide(draftId, decision, btn){
+  if(!draftId) return;
+  var card=btn.closest(".pend-card");
+  var btns=card?card.querySelectorAll("button"):[];
+  for(var i=0;i<btns.length;i++) btns[i].disabled=true;
+  var body="action=update_draft_status&draft_id="+encodeURIComponent(draftId)+"&decision="+decision;
+  // no-cors: Apps Script web apps don't return CORS headers, so the response is opaque.
+  // The urlencoded POST is a CORS "simple request" and still executes server-side.
+  fetch(APPROVE_ENDPOINT,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body})
+    .then(function(){
+      PENDING=PENDING.filter(function(o){return String(o.draft_id||"")!==String(draftId);});
+      renderPending(PENDING);
+      toast(decision==="approved"?"Approved — send dispatched.":"Marked as don\u2019t send — dispatched.");
+    })
+    .catch(function(){
+      for(var i=0;i<btns.length;i++) btns[i].disabled=false;
+      toast("Couldn\u2019t reach the approval endpoint. Try again.");
+    });
+}
+function initPendingActions(){
+  document.getElementById("pending").addEventListener("click", function(e){
+    var b=e.target.closest?e.target.closest("button[data-decision]"):null;
+    if(!b) return;
+    decide(b.getAttribute("data-draft"), b.getAttribute("data-decision"), b);
+  });
+}
+function showSetup(){
+  document.getElementById("content").style.display="none";
+  document.getElementById("refreshBtn").style.display="none";
+  document.getElementById("setupBox").innerHTML=
+    '<div class="setup"><h2>Almost there — add your links</h2>'+
+    '<p>This dashboard reads your data from a <code>config.js</code> file that is <b>not</b> committed to Git (it holds your personal sheet links). To run it:</p>'+
+    '<ol>'+
+    '<li>Copy <code>config.example.js</code> to <code>config.js</code>.</li>'+
+    '<li>Open <code>config.js</code> and paste your own <b>Publish&nbsp;to&nbsp;web → CSV</b> links for the Insights, Drafts and (optional) Draft Responses tabs, plus your approval endpoint.</li>'+
+    '<li>Reload this page.</li>'+
+    '</ol>'+
+    '<p>See <code>README.md</code> for full setup and how to obtain each link.</p></div>';
+}
+function load(isManual){
+  if(!isSet(INSIGHTS_CSV_URL) || !isSet(DRAFTS_CSV_URL)){
+    showSetup();
+    return;
+  }
+  // Reveal the Pending section only when its link is configured.
+  if(isSet(DRAFT_RESPONSES_CSV_URL)){
+    document.getElementById("pendingLabel").style.display="";
+    document.getElementById("pending").style.display="";
+  }
+  var btn=document.getElementById("refreshBtn"); btn.disabled=true;
+  setStatus("loading","Loading latest data from the sheet…");
+  loadPending();
+  Promise.all([fetchCsv(INSIGHTS_CSV_URL),fetchCsv(DRAFTS_CSV_URL)])
+    .then(function(res){
+      renderInsights(toObjects(parseCSV(res[0])));
+      renderDrafts(toObjects(parseCSV(res[1])));
+      setStatus("",null);
+      document.getElementById("updated").textContent="Updated "+new Date().toLocaleTimeString();
+    })
+    .catch(function(err){
+      setStatus("error","Could not load the sheet ("+err.message+"). If this is a CORS block, the tab may not be published as CSV — or try again.");
+    })
+    .then(function(){btn.disabled=false;});
+}
+renderSubmissions();
+initPendingActions();
+load(false);
+</script>
+</body>
+</html>

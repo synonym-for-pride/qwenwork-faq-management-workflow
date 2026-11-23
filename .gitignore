@@ -1,0 +1,25 @@
+# Local secrets — real published-CSV links and the approval endpoint. Never commit.
+config.js
+dashboard/config.js
+
+# Environment / credentials
+.env
+.env.*
+*.pem
+credentials.json
+service-account*.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/
+
+# Office temp files
+~$*
+
+# Node (only relevant if a local static server is added)
+node_modules/
+npm-debug.log*
